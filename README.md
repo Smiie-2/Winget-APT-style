@@ -41,6 +41,22 @@ Enter the number (1-x) or 'q' to quit:
 
 Enter the number and hit Enter to proceed with the installation of that specific package ID.
 
+## Updating
+
+To update to the latest version, simply re-run the installation script:
+```powershell
+.\Install-WingetApt.ps1
+```
+It will overwrite the existing script without duplicating the profile alias.
+
+## Uninstallation
+
+To remove winget-apt and restore the default `winget` behavior:
+```powershell
+.\Uninstall-WingetApt.ps1
+```
+This removes the installed script and cleans the alias from your PowerShell profile(s). Restart your terminal afterward.
+
 ## How it Works
 
 The installer copies the main script to `$HOME\AppData\Local\winget-apt` and adds a function named `winget` to your PowerShell profile. This function intercepts calls, checks if the command is `install`, and handles the interactive selection if needed. It always calls the original `winget.exe` for the actual heavy lifting.

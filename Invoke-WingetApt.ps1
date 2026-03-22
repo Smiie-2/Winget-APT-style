@@ -70,6 +70,7 @@ if ($command -in @('install', 'i') -and $subArgs.Count -gt 0) {
         exit 0
     }
 
+    [int]$index = 0
     if ([int]::TryParse($selection, [ref]$index) -and $index -ge 1 -and $index -le $results.Count) {
         # Parse the ID from the selected line
         # Winget Search output is usually columnar. 
