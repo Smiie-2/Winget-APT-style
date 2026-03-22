@@ -39,10 +39,25 @@ if ($command -in @('install', 'i') -and $subArgs.Count -gt 0) {
     
     # Run winget search and capture output
     $searchOutput = Invoke-OriginalWinget @('search', $query)
-    
-    # Winget output usually has a header like Name ID Version Source
-    # We need to find where the actual results start
-    $results = $searchOutput | Where-Object { $_ -match '^\S' -and $_ -notmatch '^Name\s+Id\s+Version' -and $_ -notmatch '^-+\s+-+' }
+
+    # Find the header line to determine column positions
+    $headerLine = $searchOutput | Where-Object { $_ -match '^Name\s+Id' } | Select-Object -First 1
+
+    if (-not $headerLine) {
+        Write-Host "No packages found matching '$query'." -ForegroundColor Yellow
+        exit 0
+    }
+
+    $idStart = $headerLine.IndexOf('Id')
+    $versionStart = $headerLine.IndexOf('Version')
+
+    # Filter results: skip header, separator line (all dashes/spaces), and blank lines
+    $results = $searchOutput | Where-Object {
+        $_ -and
+        $_ -notmatch '^Name\s+Id' -and
+        $_ -notmatch '^[-\s]+$' -and
+        $_.Trim().Length -gt 0
+    }
 
     if (-not $results) {
         Write-Host "No packages found matching '$query'." -ForegroundColor Yellow
@@ -72,23 +87,21 @@ if ($command -in @('install', 'i') -and $subArgs.Count -gt 0) {
 
     [int]$index = 0
     if ([int]::TryParse($selection, [ref]$index) -and $index -ge 1 -and $index -le $results.Count) {
-        # Parse the ID from the selected line
-        # Winget Search output is usually columnar. 
-        # A simple split might not work if names have spaces.
-        # But winget list/search output columns are fixed width or tabbed-ish.
-        # Most reliable is to extract the ID column.
         $selectedLine = $results[$index - 1]
-        
-        # Heuristic: Find the ID. Usually the second column.
-        # We'll try to find the ID by looking for the first gap of multiple spaces.
-        if ($selectedLine -match '^(?<name>.+?)\s{2,}(?<id>\S+)\s+') {
-            $id = $matches['id']
+
+        # Extract the ID using column positions from the header line
+        $id = $null
+        if ($selectedLine.Length -ge $versionStart) {
+            $id = $selectedLine.Substring($idStart, $versionStart - $idStart).Trim()
+        } elseif ($selectedLine.Length -gt $idStart) {
+            $id = $selectedLine.Substring($idStart).Trim()
+        }
+
+        if ($id) {
             Write-Host "Installing $id..." -ForegroundColor Green
-            # We replace the query with the exact ID to prevent prompt again
             $newArgs = @($command, $id) + $subArgs[1..($subArgs.Count - 1)]
             Invoke-OriginalWinget $newArgs
         } else {
-            # Fallback to the original line if parsing fails
             Write-Warning "Could not parse package ID. Falling back to original command."
             Invoke-OriginalWinget $RemainingArgs
         }
